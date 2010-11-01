@@ -1,2 +1,3 @@
-data
+data_input
+data_output
 *.pyc

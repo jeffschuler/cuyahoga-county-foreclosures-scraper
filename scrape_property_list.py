@@ -7,54 +7,79 @@ from BeautifulSoup import BeautifulSoup
 from os import system
 from xml.dom.minidom import Document
 
-property_info_fields = ['sale_date', 'sale_number', 'parcel_number', 'location', 'status', 'prorated_taxes', 'case_number', 'plaintiff', 'defendant', 'address', 'description', 'sold_amount', 'purchaser', 'attorney']
+property_info_fields = ['sale_date', 'sale_num', 'parcel_num', 'location', 'city', 'status', 'prorated_taxes', 'case_num', 'plaintiff', 'defendant', 'address', 'description', 'appraisal', 'minimum_bid', 'sold_amount', 'purchaser', 'attorney']
 
 def parse_info_table(infoTable):
     property_info = {}
     s = infoTable.contents[2].find('p')
     property_info['sale_date'] = s.contents[0]
+    #print property_info['sale_date']
     s = s.findNext('p')
-    property_info['sale_number'] = s.contents[0]
+    property_info['sale_num'] = s.contents[0]
+    #print property_info['sale_num']
     s = s.findNext('input')
-    property_info['parcel_number'] = s['value']
+    property_info['parcel_num'] = s['value']
+    #print property_info['parcel_num']
     s = s.findNext('p')
     property_info['location'] = s.contents[0]
+    property_info['city'] = re.sub(' ..st of River', '', s.contents[0])
+    #print property_info['city']
     s = s.findNext('p')
-    property_info['status'] = re.sub('Status: ', '', s.contents[0])    
+    property_info['status'] = re.sub('Status: ', '', s.contents[0])
+    property_info['status'] = re.sub('To Be Sold on .*', 'To Be Sold', property_info['status'])
+    property_info['status'] = re.sub('SOLD', 'Sold', property_info['status'])
+    #print property_info['status']
     s = s.findNext('p')
     property_info['prorated_taxes'] = re.sub('Prorated Taxes: \$', '', s.contents[0])
+    #print property_info['prorated_taxes']
     return property_info
 
 def parse_details_table(detailsTable):
     property_info = {}
     s = detailsTable.find('p')
     s = s.findNext('p')
-    property_info['case_number'] = s.contents[0]
+    property_info['case_num'] = s.contents[0]
+    #print property_info['case_num']
     s = s.findNext('p')
     s = s.findNext('p')
     property_info['plaintiff'] = s.contents[0]
+    #print property_info['plaintiff']
     s = s.findNext('p')
     s = s.findNext('p')
     property_info['defendant'] = s.contents[0]
+    #print property_info['defendant']
     s = s.findNext('p')
     s = s.findNext('p')
     property_info['address'] = re.sub('  $', '', s.contents[0])
+    #print property_info['address']
     s = s.findNext('p')
     s = s.findNext('p')
     property_info['description'] = s.contents[0]
+    #print property_info['description']
     s = s.findNext('p')
     if (s.contents[0] == 'Sold Amount'):
         s = s.findNext('p')
         property_info['sold_amount'] = re.sub('\$', '', s.contents[0])
+        #print property_info['sold_amount']
         s = s.findNext('p')
         s = s.findNext('p')
         property_info['purchaser'] = s.contents[0]
+        #print property_info['purchaser']
+    elif (s.contents[0] == 'Appraisal'):
+        s = s.findNext('p')
+        property_info['appraisal'] = re.sub('\$', '', s.contents[0])
+        #print property_info['appraisal']
+        s = s.findNext('p')
+        s = s.findNext('p')
+        property_info['minimum_bid'] = re.sub('\$ ', '', s.contents[0])
+        #print property_info['minimum_bid']
     else:
         s = s.findNext('p')
     s = s.findNext('p')
     s = s.findNext('p')
-    property_info['attorney'] = s.contents[0]
-    
+    if (isinstance(s.contents, (list, tuple)) and len(s.contents) > 0):
+        property_info['attorney'] = s.contents[0]
+        #print property_info['attorney']
     return property_info
 
 # get each location
@@ -73,7 +98,7 @@ def parse_details_table(detailsTable):
 #formRequestResponse = urllib2.urlopen(formRequest)
 #propertiesHtml = formRequestResponse.read()
 
-foreclosuresFile = '/home/jeffschuler/dev/foreclosures/data/foreclosure_city.asp-2010-10-17.html'
+foreclosuresFile = '/home/jeffschuler/dev/foreclosures/data_input/foreclosure_city.asp-2010-10-17.html'
 
 ## after each
 ##   <table width="577px" cellpadding="2px" class="info">
@@ -114,4 +139,4 @@ while infoTable:
      
     infoTable = detailsTable.findNextSibling("table", "info")
 
-print xml_doc.toprettyxml(indent="  ")
+print xml_doc.toprettyxml(indent="")
