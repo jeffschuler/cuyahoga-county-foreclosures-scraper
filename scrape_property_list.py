@@ -83,8 +83,38 @@ def parse_details_table(detailsTable):
         #print property_info['attorney']
     return property_info
 
-def get_areas_list():
+def get_cities_list():
     url = "http://sheriff.cuyahogacounty.us/propertysearch.asp"
+    # get all options in <select name="city">
+    citiesList = { "Bay Village", "Beachwood", "Bedford", "Bedford Heights", "Bentleyville", "Berea", "Bratenahl", "Brecksville", "Broadview Heights", "Brook Park", "Brooklyn Heights", "Brooklyn Village", "Chagrin Falls Township", "Chagrin Village", "Cleveland East of River", "Cleveland Heights", "Cleveland West of River", "Cuyahoga Heights", "East Cleveland", "Euclid", "Fairview Park", "GARFIELD", "Garfield Heights", "Gates Mills", "Glenwillow", "Highland Heights", "Highland Hills", "Hunting Valley", "Lakewood", "Lyndhurst", "Maple Heights", "Mayfield Heights", "Mayfield Village", "Middleburg Heights", "Moreland Hills", "Newburgh Heights", "North Olmsted", "North Royalton", "Oakwood", "Olmsted Falls", "Olmsted Township", "Orange", "Parma", "Parma Heights", "Pepper Pike", "Richmond Heights", "Rocky River", "Seven Hills", "Shaker Heights", "Solon", "South Euclid", "Strongsville", "University Heights", "Valley View", "Walton Hills", "Warrensville Heights", "Westlake", "Woodmere" }
+    citiesList = { "Cleveland West of River" }
+    return citiesList
+
+def get_all_city_files(citiesList, curDataDirPath):
+    for cityName in citiesList:
+        get_city_file(cityName, curDataDirPath)
+
+def get_city_file(cityName, curDataDirPath):
+    formUrl = "http://sheriff.cuyahogacounty.us/foreclosure_city.asp"
+    formValues = { 'city' : cityName }
+    formData = urllib.urlencode(formValues)
+    formRequest = urllib2.Request(formUrl, formData)
+    formRequestResponse = urllib2.urlopen(formRequest)
+    cityForeclosuresHtml = formRequestResponse.read()
+    cityMachineName = lower(re.sub(' ', '_', cityName))
+    foreclosuresHtmlFilePath = curDataDirPath + cityMachineName
+    foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'w')
+    foreclosuresHtmlFile.write(cityForeclosuresHtml)
+    foreclosuresHtmlFile.close()
+    fix_html_tables(foreclosuresHtmlFilePath)
+    #foreclosuresHtmlFilePath = '/home/jeffschuler/dev/foreclosures/data_input/foreclosure_city.asp-2010-10-17.html'
+    return foreclosuresHtmlFilePath
+
+def parse_all_city_files(curDataDirPath):
+    #for each [*.html] in curDataDirPath as foreclosuresHtmlFilePath:
+        xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
+        #outFileName = strip .html and replace with .xml 
+        output_xml_file(xml_doc, curDataDirPath, outFileName)
 
 def parse_foreclosures_html(foreclosuresHtmlFilePath):
     foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'r')
@@ -116,40 +146,41 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
         infoTable = detailsTable.findNextSibling("table", "info")
     return xml_doc
 
-def output_xml_file(xml_doc):
-    datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
-    outFileName = 'properties_cleve_west_' + datetimeStr + '.xml'
-    outFilePath = '/home/jeffschuler/dev/foreclosures/data_output/' + outFileName
+def output_xml_file(xml_doc, curDataDirPath, outFileName):
+    outFilePath = curDataDirPath + outFileName
     outFile = file(outFilePath, 'w')
     outFile.write(xml_doc.toprettyxml(indent=""))
     outFile.close() 
 
-# options in <select name="city">
+def fix_html_tables(foreclosuresHtmlFilePath):
+    # after each: <table width="577px" cellpadding="2px" class="info">
+    # we must add a <tr> for proper parsing
+    # Edits file in place
+    replaceInFilesScript = '/home/jeffschuler/bin/replace_in_files.sh'
+    findLine = '\"<table width=\\"577px\\" cellpadding=\\"2px\\" class=\\"info\\">\"'
+    replaceLine = '\"<table width=\\"577px\\" cellpadding=\\"2px\\" class=\\"info\\"><tr>\"'
+    replaceCommandStr = replaceInFilesScript + ' ' + foreclosuresHtmlFilePath + ' ' + findLine + ' ' + replaceLine
+    #print replaceCommandStr
+    system(replaceCommandStr)
 
-# submit form for each location
-#formValues = {
-#    "Cleveland West of River"
-#}
+def create_dirs(rootDataDir):
+    datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
+    curDataDirPath = rootDataDir + datetimeStr
+    os.mkdir(curDataDirPath)
+    return curDataDirPath
 
-# http://sheriff.cuyahogacounty.us/foreclosure_city.asp
+#def merge_xml_files(curDataDirPath):
+#    print "merge_xml_files"
+#    #return outFilePath
+#
+#def copy_to_site_dir():
+#    print "copy_to_site_dir"
+    
 
-#formData = urllib.urlencode(formValues)
-#formRequest = urllib2.Request('http://....', formData)
-#formRequestResponse = urllib2.urlopen(formRequest)
-#propertiesHtml = formRequestResponse.read()
-
-foreclosuresHtmlFilePath = '/home/jeffschuler/dev/foreclosures/data_input/foreclosure_city.asp-2010-10-17.html'
-
-## after each
-##   <table width="577px" cellpadding="2px" class="info">
-## we must add a <tr> for proper parsing:
-#replaceInFilesScript = '/home/jeffschuler/bin/replace_in_files.sh'
-#findLine = '\"<table width=\\"577px\\" cellpadding=\\"2px\\" class=\\"info\\">\"'
-#replaceLine = '\"<table width=\\"577px\\" cellpadding=\\"2px\\" class=\\"info\\"><tr>\"'
-#replaceCommandStr = replaceInFilesScript + ' ' + foreclosuresFile + ' ' + findLine + ' ' + replaceLine
-##print replaceCommandStr
-#system(replaceCommandStr)
-
-xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
-
-output_xml_file(xml_doc)
+rootDataDir = '/home/jeffschuler/dev/foreclosures/data/'
+curDataDirPath = create_dirs(rootDataDir)
+citiesList = get_cities_list()
+get_all_city_files(citiesList, curDataDirPath)
+parse_all_city_files(curDataDirPath)
+#outFilePath = merge_xml_files(curDataDirPath)
+#copy_to_site_dir(outFilePath)
