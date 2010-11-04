@@ -6,6 +6,7 @@ from urllib import urlencode
 from BeautifulSoup import BeautifulSoup
 from os import system
 from xml.dom.minidom import Document
+from datetime import datetime
 
 property_info_fields = ['sale_date', 'sale_num', 'parcel_num', 'location', 'city', 'status', 'prorated_taxes', 'case_num', 'plaintiff', 'defendant', 'address', 'description', 'appraisal', 'minimum_bid', 'sold_amount', 'purchaser', 'attorney']
 
@@ -139,4 +140,9 @@ while infoTable:
      
     infoTable = detailsTable.findNextSibling("table", "info")
 
-print xml_doc.toprettyxml(indent="")
+datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
+outFileName = 'properties_cleve_west_' + datetimeStr + '.xml'
+outFilePath = '/home/jeffschuler/dev/foreclosures/data_output/' + outFileName
+outFile = file(outFilePath, 'w')
+outFile.write(xml_doc.toprettyxml(indent=""))
+outFile.close() 
