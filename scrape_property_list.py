@@ -83,8 +83,47 @@ def parse_details_table(detailsTable):
         #print property_info['attorney']
     return property_info
 
-# get each location
-# http://sheriff.cuyahogacounty.us/propertysearch.asp
+def get_areas_list():
+    url = "http://sheriff.cuyahogacounty.us/propertysearch.asp"
+
+def parse_foreclosures_html(foreclosuresHtmlFilePath):
+    foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'r')
+    xml_doc = Document()
+    xml_properties = xml_doc.createElement("properties")
+    xml_doc.appendChild(xml_properties)
+
+    soup = BeautifulSoup(foreclosuresHtmlFile)
+    #print soup.prettify()
+
+    infoTable = soup.find("table", "info")
+    while infoTable:
+        detailsTable = infoTable.findNextSibling('table', "detail")
+        property_info = parse_info_table(infoTable)
+        details = parse_details_table(detailsTable)
+        property_info.update(details)
+        #print property_info
+
+        # add new property record to XML doc
+        xml_property = xml_doc.createElement("property")
+        for field in property_info_fields:
+            if field in property_info:
+                xml_info_item = xml_doc.createElement(field)
+                item_str = xml_doc.createTextNode(property_info[field])
+                xml_info_item.appendChild(item_str)
+                xml_property.appendChild(xml_info_item)
+        xml_properties.appendChild(xml_property)
+
+        infoTable = detailsTable.findNextSibling("table", "info")
+    return xml_doc
+
+def output_xml_file(xml_doc):
+    datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
+    outFileName = 'properties_cleve_west_' + datetimeStr + '.xml'
+    outFilePath = '/home/jeffschuler/dev/foreclosures/data_output/' + outFileName
+    outFile = file(outFilePath, 'w')
+    outFile.write(xml_doc.toprettyxml(indent=""))
+    outFile.close() 
+
 # options in <select name="city">
 
 # submit form for each location
@@ -99,7 +138,7 @@ def parse_details_table(detailsTable):
 #formRequestResponse = urllib2.urlopen(formRequest)
 #propertiesHtml = formRequestResponse.read()
 
-foreclosuresFile = '/home/jeffschuler/dev/foreclosures/data_input/foreclosure_city.asp-2010-10-17.html'
+foreclosuresHtmlFilePath = '/home/jeffschuler/dev/foreclosures/data_input/foreclosure_city.asp-2010-10-17.html'
 
 ## after each
 ##   <table width="577px" cellpadding="2px" class="info">
@@ -111,38 +150,6 @@ foreclosuresFile = '/home/jeffschuler/dev/foreclosures/data_input/foreclosure_ci
 ##print replaceCommandStr
 #system(replaceCommandStr)
 
-foreclosuresHtml = file(foreclosuresFile, 'r')
+xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
 
-xml_doc = Document()
-xml_properties = xml_doc.createElement("properties")
-xml_doc.appendChild(xml_properties)
-
-soup = BeautifulSoup(foreclosuresHtml)
-#print soup.prettify()
-
-infoTable = soup.find("table", "info")
-while infoTable:
-    detailsTable = infoTable.findNextSibling('table', "detail")
-    property_info = parse_info_table(infoTable)
-    details = parse_details_table(detailsTable)
-    property_info.update(details)
-    #print property_info
-    
-    # add new property record to XML doc
-    xml_property = xml_doc.createElement("property")
-    for field in property_info_fields:
-        if field in property_info:
-            xml_info_item = xml_doc.createElement(field)
-            item_str = xml_doc.createTextNode(property_info[field])
-            xml_info_item.appendChild(item_str)
-            xml_property.appendChild(xml_info_item)
-    xml_properties.appendChild(xml_property)
-     
-    infoTable = detailsTable.findNextSibling("table", "info")
-
-datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
-outFileName = 'properties_cleve_west_' + datetimeStr + '.xml'
-outFilePath = '/home/jeffschuler/dev/foreclosures/data_output/' + outFileName
-outFile = file(outFilePath, 'w')
-outFile.write(xml_doc.toprettyxml(indent=""))
-outFile.close() 
+output_xml_file(xml_doc)
