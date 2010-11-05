@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import urllib2, re, time
 import urllib
 from urllib import urlencode
@@ -86,8 +87,8 @@ def parse_details_table(detailsTable):
 def get_cities_list():
     url = "http://sheriff.cuyahogacounty.us/propertysearch.asp"
     # get all options in <select name="city">
-    citiesList = { "Bay Village", "Beachwood", "Bedford", "Bedford Heights", "Bentleyville", "Berea", "Bratenahl", "Brecksville", "Broadview Heights", "Brook Park", "Brooklyn Heights", "Brooklyn Village", "Chagrin Falls Township", "Chagrin Village", "Cleveland East of River", "Cleveland Heights", "Cleveland West of River", "Cuyahoga Heights", "East Cleveland", "Euclid", "Fairview Park", "GARFIELD", "Garfield Heights", "Gates Mills", "Glenwillow", "Highland Heights", "Highland Hills", "Hunting Valley", "Lakewood", "Lyndhurst", "Maple Heights", "Mayfield Heights", "Mayfield Village", "Middleburg Heights", "Moreland Hills", "Newburgh Heights", "North Olmsted", "North Royalton", "Oakwood", "Olmsted Falls", "Olmsted Township", "Orange", "Parma", "Parma Heights", "Pepper Pike", "Richmond Heights", "Rocky River", "Seven Hills", "Shaker Heights", "Solon", "South Euclid", "Strongsville", "University Heights", "Valley View", "Walton Hills", "Warrensville Heights", "Westlake", "Woodmere" }
-    citiesList = { "Cleveland West of River" }
+    citiesList = [ "Bay Village", "Beachwood", "Bedford", "Bedford Heights", "Bentleyville", "Berea", "Bratenahl", "Brecksville", "Broadview Heights", "Brook Park", "Brooklyn Heights", "Brooklyn Village", "Chagrin Falls Township", "Chagrin Village", "Cleveland East of River", "Cleveland Heights", "Cleveland West of River", "Cuyahoga Heights", "East Cleveland", "Euclid", "Fairview Park", "GARFIELD", "Garfield Heights", "Gates Mills", "Glenwillow", "Highland Heights", "Highland Hills", "Hunting Valley", "Lakewood", "Lyndhurst", "Maple Heights", "Mayfield Heights", "Mayfield Village", "Middleburg Heights", "Moreland Hills", "Newburgh Heights", "North Olmsted", "North Royalton", "Oakwood", "Olmsted Falls", "Olmsted Township", "Orange", "Parma", "Parma Heights", "Pepper Pike", "Richmond Heights", "Rocky River", "Seven Hills", "Shaker Heights", "Solon", "South Euclid", "Strongsville", "University Heights", "Valley View", "Walton Hills", "Warrensville Heights", "Westlake", "Woodmere" ]
+    #citiesList = [ "Cleveland West of River" ]
     return citiesList
 
 def get_all_city_files(citiesList, curDataDirPath):
@@ -101,8 +102,8 @@ def get_city_file(cityName, curDataDirPath):
     formRequest = urllib2.Request(formUrl, formData)
     formRequestResponse = urllib2.urlopen(formRequest)
     cityForeclosuresHtml = formRequestResponse.read()
-    cityMachineName = lower(re.sub(' ', '_', cityName))
-    foreclosuresHtmlFilePath = curDataDirPath + cityMachineName
+    cityMachineName = str.lower(re.sub(' ', '_', cityName))
+    foreclosuresHtmlFilePath = os.path.join(curDataDirPath, cityMachineName + '.html')
     foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'w')
     foreclosuresHtmlFile.write(cityForeclosuresHtml)
     foreclosuresHtmlFile.close()
@@ -111,20 +112,21 @@ def get_city_file(cityName, curDataDirPath):
     return foreclosuresHtmlFilePath
 
 def parse_all_city_files(curDataDirPath):
-    #for each [*.html] in curDataDirPath as foreclosuresHtmlFilePath:
-        xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
-        #outFileName = strip .html and replace with .xml 
-        output_xml_file(xml_doc, curDataDirPath, outFileName)
+    for subdir, dirs, files in os.walk(curDataDirPath):
+        for filename in files:
+            basename, extension = os.path.splitext(filename)
+            if (extension == '.html'):
+                foreclosuresHtmlFilePath = os.path.join(subdir, filename)
+                xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
+                output_xml_file(xml_doc, curDataDirPath, basename + '.xml')
 
 def parse_foreclosures_html(foreclosuresHtmlFilePath):
     foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'r')
     xml_doc = Document()
     xml_properties = xml_doc.createElement("properties")
     xml_doc.appendChild(xml_properties)
-
     soup = BeautifulSoup(foreclosuresHtmlFile)
     #print soup.prettify()
-
     infoTable = soup.find("table", "info")
     while infoTable:
         detailsTable = infoTable.findNextSibling('table', "detail")
@@ -132,7 +134,6 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
         details = parse_details_table(detailsTable)
         property_info.update(details)
         #print property_info
-
         # add new property record to XML doc
         xml_property = xml_doc.createElement("property")
         for field in property_info_fields:
@@ -142,12 +143,11 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
                 xml_info_item.appendChild(item_str)
                 xml_property.appendChild(xml_info_item)
         xml_properties.appendChild(xml_property)
-
         infoTable = detailsTable.findNextSibling("table", "info")
     return xml_doc
 
 def output_xml_file(xml_doc, curDataDirPath, outFileName):
-    outFilePath = curDataDirPath + outFileName
+    outFilePath = os.path.join(curDataDirPath, outFileName)
     outFile = file(outFilePath, 'w')
     outFile.write(xml_doc.toprettyxml(indent=""))
     outFile.close() 
