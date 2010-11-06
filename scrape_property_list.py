@@ -1,15 +1,27 @@
 #!/usr/bin/python
 
-import os
-import urllib2, re, time
+import urllib2
+import re
+import time
 import urllib
 from urllib import urlencode
 from BeautifulSoup import BeautifulSoup
 from os import system
+from os import path
+from os import mkdir
+from os import walk
+import os
 from xml.dom.minidom import Document
 from datetime import datetime
 import logging
 import logging.handlers
+import glob
+
+
+SITE_DIR_PATH = '/var/www/foreclosures/sites/default/files/properties_xml'
+ROOT_DATA_DIR_PATH = '/home/jeffschuler/dev/foreclosures/data/'
+PROPERTY_INFO_FIELDS = ['sale_date', 'sale_num', 'parcel_num', 'location', 'city', 'status', 'prorated_taxes', 'case_num', 'plaintiff', 'defendant', 'address', 'description', 'appraisal', 'minimum_bid', 'sold_amount', 'purchaser', 'attorney']
+OUTPUT_FILENAME = 'PROPERTIES.xml'
 
 # Write messages to logfile
 LOG_FILEPATH = '/home/jeffschuler/dev/foreclosures/log/foreclosures.log'
@@ -26,9 +38,6 @@ consoleHandler.setLevel(logging.DEBUG)
 consoleFormatter = logging.Formatter("%(message)s")
 consoleHandler.setFormatter(consoleFormatter)
 logger.addHandler(consoleHandler)
-
-
-property_info_fields = ['sale_date', 'sale_num', 'parcel_num', 'location', 'city', 'status', 'prorated_taxes', 'case_num', 'plaintiff', 'defendant', 'address', 'description', 'appraisal', 'minimum_bid', 'sold_amount', 'purchaser', 'attorney']
 
 def soup_contents(s):
     # check to make sure contents[0] isn't empty
@@ -128,11 +137,11 @@ def parse_all_city_files(curDataDirPath):
             basename, extension = os.path.splitext(filename)
             if (extension == '.html'):
                 foreclosuresHtmlFilePath = os.path.join(subdir, filename)
-                logger.debug('parsing: ' + foreclosuresHtmlFilePath)
                 xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
                 output_xml_file(xml_doc, curDataDirPath, basename + '.xml')
 
 def parse_foreclosures_html(foreclosuresHtmlFilePath):
+    logger.debug('parsing: ' + foreclosuresHtmlFilePath)
     foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'r')
     xml_doc = Document()
     xml_properties = xml_doc.createElement("properties")
@@ -148,7 +157,7 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
         #print property_info
         # add new property record to XML doc
         xml_property = xml_doc.createElement("property")
-        for field in property_info_fields:
+        for field in PROPERTY_INFO_FIELDS:
             if field in property_info:
                 xml_info_item = xml_doc.createElement(field)
                 item_str = xml_doc.createTextNode(property_info[field])
@@ -175,29 +184,50 @@ def fix_html_tables(foreclosuresHtmlFilePath):
     replaceCommandStr = replaceInFilesScript + ' ' + foreclosuresHtmlFilePath + ' ' + findLine + ' ' + replaceLine
     system(replaceCommandStr)
 
-def create_dirs(rootDataDir):
+def create_dirs(rootDataDirPath):
     datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
-    curDataDirPath = rootDataDir + datetimeStr
+    curDataDirPath = os.path.join(rootDataDirPath, datetimeStr)
     os.mkdir(curDataDirPath)
     return curDataDirPath
 
-#def merge_xml_files(curDataDirPath):
-#    print "merge_xml_files"
-#    #return outFilePath
-#
-#def copy_to_site_dir():
-#    print "copy_to_site_dir"
+def merge_xml_files(curDataDirPath):
+    mergedFilePath = os.path.join(curDataDirPath, OUTPUT_FILENAME)
+    logger.debug('merging to: ' + mergedFilePath)
+    xmlFilenames = glob.glob(os.path.join(curDataDirPath, '*.xml'))
+    mergedFile = file(mergedFilePath, 'w')
+    xmlHeader = '<?xml version="1.0" ?>\n<properties>\n'
+    mergedFile.write(xmlHeader)
+    mergedFile.close()
+    for xmlFilename in xmlFilenames:
+        # avoid processing the file we're merging into
+        if re.search(OUTPUT_FILENAME, xmlFilename):
+            break
+        logger.debug('merging: ' + xmlFilename)
+        # concatenate each individual file into the merged file, peel off the XML header & footer
+        concatCmd = 'tail --lines=+3 ' + xmlFilename + ' | head --lines=-1 >> ' + mergedFilePath
+        system(concatCmd)
+    mergedFile = file(mergedFilePath, 'a')
+    xmlFooter = '\n</properties>'
+    mergedFile.write(xmlFooter)
+    mergedFile.close() 
+    return mergedFilePath
 
+def copy_to_site_dir(mergedFilePath, siteDirPath):
+    logger.debug('copying to: ' + siteDirPath)
+    system('cp ' + mergedFilePath + ' ' + siteDirPath)
 
-rootDataDir = '/home/jeffschuler/dev/foreclosures/data/'
-#curDataDirPath = '/home/jeffschuler/dev/foreclosures/data/20101104-230232' #@DEBUG
-curDataDirPath = create_dirs(rootDataDir)
-citiesList = get_cities_list()
-get_all_city_files(citiesList, curDataDirPath)
-parse_all_city_files(curDataDirPath)
-#parse_foreclosures_html('/home/jeffschuler/dev/foreclosures/data/20101104-230232/cleveland_east_of_river.html') #@DEBUG
-#parse_foreclosures_html('/home/jeffschuler/dev/foreclosures/data/20101104-230232/garfield.html') #@DEBUG
+DEBUG = False
+if (DEBUG):
+    curDataDirPath = '/home/jeffschuler/dev/foreclosures/data/20101105-214701' #@DEBUG
+    #parse_foreclosures_html(curDataDirPath + '/euclid.html') #@DEBUG
+    #parse_foreclosures_html(curDataDirPath + '/south_euclid.html') #@DEBUG
+    mergedFilePath = merge_xml_files(curDataDirPath)
+else:
+    curDataDirPath = create_dirs(ROOT_DATA_DIR_PATH)
+    citiesList = get_cities_list()
+    get_all_city_files(citiesList, curDataDirPath)
+    parse_all_city_files(curDataDirPath)
+    mergedFilePath = merge_xml_files(curDataDirPath)
+    copy_to_site_dir(mergedFilePath, SITE_DIR_PATH)
 
-#outFilePath = merge_xml_files(curDataDirPath)
-#copy_to_site_dir(outFilePath)
-logger.debug('DONE!')
+logger.debug('DONE')
