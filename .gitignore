@@ -1,4 +1,6 @@
 data_input
 data_output
 data
+old
 *.pyc
+log
