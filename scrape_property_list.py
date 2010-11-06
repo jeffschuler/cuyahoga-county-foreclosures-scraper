@@ -132,13 +132,11 @@ def get_city_file(cityName, curDataDirPath):
     return foreclosuresHtmlFilePath
 
 def parse_all_city_files(curDataDirPath):
-    for subdir, dirs, files in os.walk(curDataDirPath): # use glob.glob instead?
-        for filename in files:
-            basename, extension = os.path.splitext(filename)
-            if (extension == '.html'):
-                foreclosuresHtmlFilePath = os.path.join(subdir, filename)
-                xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
-                output_xml_file(xml_doc, curDataDirPath, basename + '.xml')
+    files = glob.glob(os.path.join(curDataDirPath, '*.html'))
+    for foreclosuresHtmlFilePath in files:
+        filepathNoExt, ext = os.path.splitext(foreclosuresHtmlFilePath)
+        xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
+        output_xml_file(xml_doc, filepathNoExt + '.xml')
 
 def parse_foreclosures_html(foreclosuresHtmlFilePath):
     logger.debug('parsing: ' + foreclosuresHtmlFilePath)
@@ -167,8 +165,7 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
         infoTable = detailsTable.findNextSibling("table", "info")
     return xml_doc
 
-def output_xml_file(xml_doc, curDataDirPath, outFileName):
-    outFilePath = os.path.join(curDataDirPath, outFileName)
+def output_xml_file(xml_doc, outFilePath):
     logger.debug('writing: ' + outFilePath)
     outFile = file(outFilePath, 'w')
     outFile.write(xml_doc.toprettyxml(indent=""))
@@ -216,18 +213,20 @@ def copy_to_site_dir(mergedFilePath, siteDirPath):
     logger.debug('copying to: ' + siteDirPath)
     system('cp ' + mergedFilePath + ' ' + siteDirPath)
 
-DEBUG = False
+DEBUG = True
 if (DEBUG):
     curDataDirPath = '/home/jeffschuler/dev/foreclosures/data/20101105-214701' #@DEBUG
     #parse_foreclosures_html(curDataDirPath + '/euclid.html') #@DEBUG
     #parse_foreclosures_html(curDataDirPath + '/south_euclid.html') #@DEBUG
+    parse_all_city_files(curDataDirPath)
     mergedFilePath = merge_xml_files(curDataDirPath)
+    #copy_to_site_dir(mergedFilePath, SITE_DIR_PATH)
 else:
     curDataDirPath = create_dirs(ROOT_DATA_DIR_PATH)
     citiesList = get_cities_list()
     get_all_city_files(citiesList, curDataDirPath)
     parse_all_city_files(curDataDirPath)
     mergedFilePath = merge_xml_files(curDataDirPath)
-    copy_to_site_dir(mergedFilePath, SITE_DIR_PATH)
+    #copy_to_site_dir(mergedFilePath, SITE_DIR_PATH)
 
 logger.debug('DONE')
