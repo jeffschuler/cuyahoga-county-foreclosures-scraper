@@ -9,44 +9,45 @@ from BeautifulSoup import BeautifulSoup
 from os import system
 from os import path
 from os import mkdir
-from os import walk
 import os
 from xml.dom.minidom import Document
 from datetime import datetime
 import logging
 import logging.handlers
 import glob
+import sys
+import getopt
+
+# Global constants
+global _SITE_DIR_PATH
+_SITE_DIR_PATH = '/var/www/foreclosures/sites/default/files/properties_xml'
+global _ROOT_DATA_DIR_PATH
+_ROOT_DATA_DIR_PATH = '/home/jeffschuler/dev/foreclosures/data/'
+global _PROPERTY_INFO_FIELDS
+_PROPERTY_INFO_FIELDS = ['sale_date', 'sale_num', 'parcel_num', 'location', 'city', 'status', 'prorated_taxes', 'case_num', 'plaintiff', 'defendant', 'address', 'description', 'appraisal', 'minimum_bid', 'sold_amount', 'purchaser', 'attorney']
+global _OUTPUT_FILENAME
+_OUTPUT_FILENAME = 'PROPERTIES.xml'
+global _LOG_FILEPATH
+_LOG_FILEPATH = '/home/jeffschuler/dev/foreclosures/log/foreclosures.log'
+
+# Global variables
+global _logger
+_logger = logging.getLogger('Logger')
 
 
-SITE_DIR_PATH = '/var/www/foreclosures/sites/default/files/properties_xml'
-ROOT_DATA_DIR_PATH = '/home/jeffschuler/dev/foreclosures/data/'
-PROPERTY_INFO_FIELDS = ['sale_date', 'sale_num', 'parcel_num', 'location', 'city', 'status', 'prorated_taxes', 'case_num', 'plaintiff', 'defendant', 'address', 'description', 'appraisal', 'minimum_bid', 'sold_amount', 'purchaser', 'attorney']
-OUTPUT_FILENAME = 'PROPERTIES.xml'
-
-# Write messages to logfile
-LOG_FILEPATH = '/home/jeffschuler/dev/foreclosures/log/foreclosures.log'
-logger = logging.getLogger('Logger')
-logger.setLevel(logging.DEBUG)
-handler = logging.handlers.RotatingFileHandler(LOG_FILEPATH, maxBytes=200000, backupCount=5)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
-# Write messages to screen
-consoleHandler = logging.StreamHandler()
-consoleHandler.setLevel(logging.DEBUG)
-consoleFormatter = logging.Formatter("%(message)s")
-consoleHandler.setFormatter(consoleFormatter)
-logger.addHandler(consoleHandler)
+def usage():
+    print "Usage: " + sys.argv[0] + " [-h|--help] [-q|--quiet] [-d|--deploy] [-t|--test]"
+    sys.exit(2)
 
 def soup_contents(s):
-    # check to make sure contents[0] isn't empty
+    """ check to make sure contents[0] isn't empty """
     if (isinstance(s.contents, (list, tuple)) and len(s.contents) > 0):
         return s.contents[0]
     else:
         return ''
 
 def parse_info_table(infoTable):
+    """ parse the "info" section ( <table>...</table> ) of a property entry """
     property_info = {}
     s = infoTable.contents[2].find('p')
     property_info['sale_date'] = soup_contents(s)
@@ -54,7 +55,7 @@ def parse_info_table(infoTable):
     property_info['sale_num'] = soup_contents(s)
     s = s.findNext('input')
     property_info['parcel_num'] = s['value']
-    #logger.debug(property_info['parcel_num'])
+    #_logger.debug(property_info['parcel_num'])
     s = s.findNext('p')
     property_info['location'] = soup_contents(s)
     property_info['city'] = re.sub(' ..st of River', '', soup_contents(s))
@@ -67,6 +68,7 @@ def parse_info_table(infoTable):
     return property_info
 
 def parse_details_table(detailsTable):
+    """ parse the "details" section ( <table>...</table> ) of a property entry """
     property_info = {}
     s = detailsTable.find('p')
     s = s.findNext('p')
@@ -105,20 +107,22 @@ def parse_details_table(detailsTable):
     return property_info
 
 def get_cities_list():
+    """ get the list of cities from the menu """
     url = "http://sheriff.cuyahogacounty.us/propertysearch.asp"
-    # get all options in <select name="city">
+    # @TODO: get all options in <select name="city">
     citiesList = [ "Bay Village", "Beachwood", "Bedford", "Bedford Heights", "Bentleyville", "Berea", "Bratenahl", "Brecksville", "Broadview Heights", "Brook Park", "Brooklyn Heights", "Brooklyn Village", "Chagrin Falls Township", "Chagrin Village", "Cleveland East of River", "Cleveland Heights", "Cleveland West of River", "Cuyahoga Heights", "East Cleveland", "Euclid", "Fairview Park", "GARFIELD", "Garfield Heights", "Gates Mills", "Glenwillow", "Highland Heights", "Highland Hills", "Hunting Valley", "Lakewood", "Lyndhurst", "Maple Heights", "Mayfield Heights", "Mayfield Village", "Middleburg Heights", "Moreland Hills", "Newburgh Heights", "North Olmsted", "North Royalton", "Oakwood", "Olmsted Falls", "Olmsted Township", "Orange", "Parma", "Parma Heights", "Pepper Pike", "Richmond Heights", "Rocky River", "Seven Hills", "Shaker Heights", "Solon", "South Euclid", "Strongsville", "University Heights", "Valley View", "Walton Hills", "Warrensville Heights", "Westlake", "Woodmere" ]
-    #citiesList = [ "Cleveland West of River" ]
     return citiesList
 
 def get_all_city_files(citiesList, curDataDirPath):
+    """ get all city files, using the list of cities """
     for cityName in citiesList:
         get_city_file(cityName, curDataDirPath)
 
 def get_city_file(cityName, curDataDirPath):
+    """ download a city HTML file """
     cityMachineName = str.lower(re.sub(' ', '_', cityName))
     foreclosuresHtmlFilePath = os.path.join(curDataDirPath, cityMachineName + '.html')
-    logger.debug('getting: ' + foreclosuresHtmlFilePath)
+    _logger.debug('getting: ' + foreclosuresHtmlFilePath)
     formUrl = "http://sheriff.cuyahogacounty.us/foreclosure_city.asp"
     formValues = { 'city' : cityName }
     formData = urllib.urlencode(formValues)
@@ -132,6 +136,7 @@ def get_city_file(cityName, curDataDirPath):
     return foreclosuresHtmlFilePath
 
 def parse_all_city_files(curDataDirPath):
+    """ parse all of the city HTML files in the specified directory """
     files = glob.glob(os.path.join(curDataDirPath, '*.html'))
     for foreclosuresHtmlFilePath in files:
         filepathNoExt, ext = os.path.splitext(foreclosuresHtmlFilePath)
@@ -139,7 +144,8 @@ def parse_all_city_files(curDataDirPath):
         output_xml_file(xml_doc, filepathNoExt + '.xml')
 
 def parse_foreclosures_html(foreclosuresHtmlFilePath):
-    logger.debug('parsing: ' + foreclosuresHtmlFilePath)
+    """ parse the specified city HTML file """
+    _logger.debug('parsing: ' + foreclosuresHtmlFilePath)
     foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'r')
     xml_doc = Document()
     xml_properties = xml_doc.createElement("properties")
@@ -155,7 +161,7 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
         #print property_info
         # add new property record to XML doc
         xml_property = xml_doc.createElement("property")
-        for field in PROPERTY_INFO_FIELDS:
+        for field in _PROPERTY_INFO_FIELDS:
             if field in property_info:
                 xml_info_item = xml_doc.createElement(field)
                 item_str = xml_doc.createTextNode(property_info[field])
@@ -166,15 +172,16 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
     return xml_doc
 
 def output_xml_file(xml_doc, outFilePath):
-    logger.debug('writing: ' + outFilePath)
+    """ output the xml to file """
+    _logger.debug('writing: ' + outFilePath)
     outFile = file(outFilePath, 'w')
     outFile.write(xml_doc.toprettyxml(indent=""))
     outFile.close() 
 
 def fix_html_tables(foreclosuresHtmlFilePath):
-    # after each: <table width="577px" cellpadding="2px" class="info">
-    # we must add a <tr> for proper parsing
-    # Edits file in place
+    """ after each: <table width="577px" cellpadding="2px" class="info">
+    we must add a <tr> for proper parsing.
+    Edit the file in place """
     replaceInFilesScript = '/home/jeffschuler/bin/replace_in_files.sh'
     findLine = '\"<table width=\\"577px\\" cellpadding=\\"2px\\" class=\\"info\\">\"'
     replaceLine = '\"<table width=\\"577px\\" cellpadding=\\"2px\\" class=\\"info\\"><tr>\"'
@@ -182,14 +189,16 @@ def fix_html_tables(foreclosuresHtmlFilePath):
     system(replaceCommandStr)
 
 def create_dirs(rootDataDirPath):
+    """ create new data directory for the current run """
     datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
     curDataDirPath = os.path.join(rootDataDirPath, datetimeStr)
     os.mkdir(curDataDirPath)
     return curDataDirPath
 
 def merge_xml_files(curDataDirPath):
-    mergedFilePath = os.path.join(curDataDirPath, OUTPUT_FILENAME)
-    logger.debug('merging to: ' + mergedFilePath)
+    """ merge all of the xml properties files in the specified directory into one """
+    mergedFilePath = os.path.join(curDataDirPath, _OUTPUT_FILENAME)
+    _logger.debug('merging to: ' + mergedFilePath)
     xmlFilenames = glob.glob(os.path.join(curDataDirPath, '*.xml'))
     mergedFile = file(mergedFilePath, 'w')
     xmlHeader = '<?xml version="1.0" ?>\n<properties>\n'
@@ -197,9 +206,9 @@ def merge_xml_files(curDataDirPath):
     mergedFile.close()
     for xmlFilename in xmlFilenames:
         # avoid processing the file we're merging into
-        if re.search(OUTPUT_FILENAME, xmlFilename):
+        if re.search(_OUTPUT_FILENAME, xmlFilename):
             break
-        logger.debug('merging: ' + xmlFilename)
+        _logger.debug('merging: ' + xmlFilename)
         # concatenate each individual file into the merged file, peel off the XML header & footer
         concatCmd = 'tail --lines=+3 ' + xmlFilename + ' | head --lines=-1 >> ' + mergedFilePath
         system(concatCmd)
@@ -210,23 +219,68 @@ def merge_xml_files(curDataDirPath):
     return mergedFilePath
 
 def copy_to_site_dir(mergedFilePath, siteDirPath):
-    logger.debug('copying to: ' + siteDirPath)
+    """ copy the [merged xml] file to the site directory, for import """
+    _logger.debug('copying to: ' + siteDirPath)
     system('cp ' + mergedFilePath + ' ' + siteDirPath)
 
-DEBUG = True
-if (DEBUG):
-    curDataDirPath = '/home/jeffschuler/dev/foreclosures/data/20101105-214701' #@DEBUG
-    #parse_foreclosures_html(curDataDirPath + '/euclid.html') #@DEBUG
-    #parse_foreclosures_html(curDataDirPath + '/south_euclid.html') #@DEBUG
-    parse_all_city_files(curDataDirPath)
-    mergedFilePath = merge_xml_files(curDataDirPath)
-    #copy_to_site_dir(mergedFilePath, SITE_DIR_PATH)
-else:
-    curDataDirPath = create_dirs(ROOT_DATA_DIR_PATH)
-    citiesList = get_cities_list()
-    get_all_city_files(citiesList, curDataDirPath)
-    parse_all_city_files(curDataDirPath)
-    mergedFilePath = merge_xml_files(curDataDirPath)
-    #copy_to_site_dir(mergedFilePath, SITE_DIR_PATH)
 
-logger.debug('DONE')
+def main(argv):
+    # Global cmd-line parameter -based variables
+    global _log_to_console
+    _log_to_console = 1
+    global _deploy
+    _deploy = 0
+    global _test_mode
+    _test_mode = 0
+
+    try:                                
+        opts, args = getopt.getopt(argv, "hqdt", ["help", "quiet", "deploy", "test"])
+    except getopt.GetoptError:          
+        usage()
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            usage()
+            sys.exit(2)
+        elif opt in ("-q", "--quiet"):
+            _log_to_console = 0
+        elif opt in ("-d", "--deploy"):
+            _deploy = 1
+        elif opt in ("-t", "--test"):
+            _test_mode = 1
+    source = "".join(args)
+
+    # Write messages to logfile
+    _logger.setLevel(logging.DEBUG)
+    handler = logging.handlers.RotatingFileHandler(_LOG_FILEPATH, maxBytes=200000, backupCount=5)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    _logger.addHandler(handler)
+    
+    # Write messages to screen
+    if (_log_to_console):
+        consoleHandler = logging.StreamHandler()
+        consoleHandler.setLevel(logging.DEBUG)
+        consoleFormatter = logging.Formatter("%(message)s")
+        consoleHandler.setFormatter(consoleFormatter)
+        _logger.addHandler(consoleHandler)
+
+    if (_test_mode):
+        curDataDirPath = '/home/jeffschuler/dev/foreclosures/data/test_data'
+        parse_all_city_files(curDataDirPath)
+        mergedFilePath = merge_xml_files(curDataDirPath)
+    else:
+        curDataDirPath = create_dirs(_ROOT_DATA_DIR_PATH)
+        citiesList = get_cities_list()
+        get_all_city_files(citiesList, curDataDirPath)
+        parse_all_city_files(curDataDirPath)
+        mergedFilePath = merge_xml_files(curDataDirPath)
+        # @TODO: tar+gz curDataDirPath
+        if (_deploy):
+            copy_to_site_dir(mergedFilePath, _SITE_DIR_PATH)
+
+    _logger.debug('DONE')
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
