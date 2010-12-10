@@ -164,7 +164,7 @@ def parse_foreclosures_html(foreclosuresHtmlFilePath):
         for field in _PROPERTY_INFO_FIELDS:
             if field in property_info:
                 xml_info_item = xml_doc.createElement(field)
-                item_str = xml_doc.createTextNode(property_info[field])
+                item_str = xml_doc.createTextNode(str(property_info[field]))
                 xml_info_item.appendChild(item_str)
                 xml_property.appendChild(xml_info_item)
         xml_properties.appendChild(xml_property)
