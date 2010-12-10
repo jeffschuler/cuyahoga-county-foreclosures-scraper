@@ -22,7 +22,9 @@ import getopt
 global _SITE_DIR_PATH
 _SITE_DIR_PATH = '/var/www/foreclosures/sites/default/files/properties_xml'
 global _ROOT_DATA_DIR_PATH
-_ROOT_DATA_DIR_PATH = '/home/jeffschuler/dev/foreclosures/data/'
+_ROOT_DATA_DIR_PATH = '/home/jeffschuler/dev/foreclosures/data'
+global _ARCHIVES_DIR_PATH
+_ARCHIVES_DIR_PATH = '/home/jeffschuler/dev/foreclosures/archive'
 global _PROPERTY_INFO_FIELDS
 _PROPERTY_INFO_FIELDS = ['sale_date', 'sale_num', 'parcel_num', 'location', 'city', 'status', 'prorated_taxes', 'case_num', 'plaintiff', 'defendant', 'address', 'description', 'appraisal', 'minimum_bid', 'sold_amount', 'purchaser', 'attorney']
 global _OUTPUT_FILENAME
@@ -218,6 +220,15 @@ def merge_xml_files(curDataDirPath):
     mergedFile.close() 
     return mergedFilePath
 
+def archive_data(archivesDirPath, curDataDirPath):
+    """ tar + gzip curDataDirPath to archives directory """
+    curDataDirParent, curDataDirName = os.path.split(curDataDirPath)
+    datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
+    archiveFilename = curDataDirName + '_' + datetimeStr + '.tar.gz' # datestamp from data dir AND current datestamp
+    archivePath = os.path.join(archivesDirPath, archiveFilename)
+    _logger.debug('archiving to: ' + archivePath)
+    system('tar -czpf ' + archivePath + ' -C ' + curDataDirParent + ' ' + curDataDirName)
+
 def copy_to_site_dir(mergedFilePath, siteDirPath):
     """ copy the [merged xml] file to the site directory, for import """
     _logger.debug('copying to: ' + siteDirPath)
@@ -270,13 +281,14 @@ def main(argv):
         curDataDirPath = '/home/jeffschuler/dev/foreclosures/data/test_data'
         parse_all_city_files(curDataDirPath)
         mergedFilePath = merge_xml_files(curDataDirPath)
+        archive_data(_ARCHIVES_DIR_PATH, curDataDirPath)
     else:
         curDataDirPath = create_dirs(_ROOT_DATA_DIR_PATH)
         citiesList = get_cities_list()
         get_all_city_files(citiesList, curDataDirPath)
         parse_all_city_files(curDataDirPath)
         mergedFilePath = merge_xml_files(curDataDirPath)
-        # @TODO: tar+gz curDataDirPath
+        archive_data(_ARCHIVES_DIR_PATH, curDataDirPath)
         if (_deploy):
             copy_to_site_dir(mergedFilePath, _SITE_DIR_PATH)
 
