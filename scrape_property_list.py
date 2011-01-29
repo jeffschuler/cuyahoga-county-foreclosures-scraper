@@ -31,6 +31,8 @@ global _OUTPUT_FILENAME
 _OUTPUT_FILENAME = 'PROPERTIES.xml'
 global _LOG_FILEPATH
 _LOG_FILEPATH = '/home/jeffschuler/dev/foreclosures/log/foreclosures.log'
+global _DATE_ATTRIBUTE
+_DATE_ATTRIBUTE = 'date_scraped'
 
 # Global variables
 global _logger
@@ -137,20 +139,21 @@ def get_city_file(cityName, curDataDirPath):
     fix_html_tables(foreclosuresHtmlFilePath)
     return foreclosuresHtmlFilePath
 
-def parse_all_city_files(curDataDirPath):
+def parse_all_city_files(curDataDirPath, now_datetime):
     """ parse all of the city HTML files in the specified directory """
     files = glob.glob(os.path.join(curDataDirPath, '*.html'))
     for foreclosuresHtmlFilePath in files:
         filepathNoExt, ext = os.path.splitext(foreclosuresHtmlFilePath)
-        xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath)
+        xml_doc = parse_foreclosures_html(foreclosuresHtmlFilePath, now_datetime)
         output_xml_file(xml_doc, filepathNoExt + '.xml')
 
-def parse_foreclosures_html(foreclosuresHtmlFilePath):
+def parse_foreclosures_html(foreclosuresHtmlFilePath, now_datetime):
     """ parse the specified city HTML file """
     _logger.debug('parsing: ' + foreclosuresHtmlFilePath)
     foreclosuresHtmlFile = file(foreclosuresHtmlFilePath, 'r')
     xml_doc = Document()
     xml_properties = xml_doc.createElement("properties")
+    xml_properties.setAttribute(_DATE_ATTRIBUTE, now_datetime.isoformat())
     xml_doc.appendChild(xml_properties)
     soup = BeautifulSoup(foreclosuresHtmlFile)
     #print soup.prettify()
@@ -190,20 +193,21 @@ def fix_html_tables(foreclosuresHtmlFilePath):
     replaceCommandStr = replaceInFilesScript + ' ' + foreclosuresHtmlFilePath + ' ' + findLine + ' ' + replaceLine
     system(replaceCommandStr)
 
-def create_dirs(rootDataDirPath):
+def create_dirs(rootDataDirPath, now_datetime):
     """ create new data directory for the current run """
-    datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
+    datetimeStr = now_datetime.strftime("%Y%m%d-%H%M%S")
     curDataDirPath = os.path.join(rootDataDirPath, datetimeStr)
     os.mkdir(curDataDirPath)
     return curDataDirPath
 
-def merge_xml_files(curDataDirPath):
+def merge_xml_files(curDataDirPath, now_datetime):
     """ merge all of the xml properties files in the specified directory into one """
     mergedFilePath = os.path.join(curDataDirPath, _OUTPUT_FILENAME)
     _logger.debug('merging to: ' + mergedFilePath)
     xmlFilenames = glob.glob(os.path.join(curDataDirPath, '*.xml'))
     mergedFile = file(mergedFilePath, 'w')
-    xmlHeader = '<?xml version="1.0" ?>\n<properties>\n'
+    attribute_str = _DATE_ATTRIBUTE + '="' + now_datetime.isoformat() + '"'
+    xmlHeader = '<?xml version="1.0" ?>\n<properties ' + attribute_str + '>\n'
     mergedFile.write(xmlHeader)
     mergedFile.close()
     for xmlFilename in xmlFilenames:
@@ -220,10 +224,10 @@ def merge_xml_files(curDataDirPath):
     mergedFile.close() 
     return mergedFilePath
 
-def archive_data(archivesDirPath, curDataDirPath):
+def archive_data(archivesDirPath, curDataDirPath, now_datetime):
     """ tar + gzip curDataDirPath to archives directory """
     curDataDirParent, curDataDirName = os.path.split(curDataDirPath)
-    datetimeStr = datetime.now().strftime("%Y%m%d-%H%M%S")
+    datetimeStr = now_datetime.strftime("%Y%m%d-%H%M%S")
     archiveFilename = curDataDirName + '_' + datetimeStr + '.tar.gz' # datestamp from data dir AND current datestamp
     archivePath = os.path.join(archivesDirPath, archiveFilename)
     _logger.debug('archiving to: ' + archivePath)
@@ -243,6 +247,8 @@ def main(argv):
     _deploy = 0
     global _test_mode
     _test_mode = 0
+    
+    now_datetime = datetime.now()
 
     try:                                
         opts, args = getopt.getopt(argv, "hqdt", ["help", "quiet", "deploy", "test"])
@@ -279,16 +285,16 @@ def main(argv):
 
     if (_test_mode):
         curDataDirPath = '/home/jeffschuler/dev/foreclosures/data/test_data'
-        parse_all_city_files(curDataDirPath)
-        mergedFilePath = merge_xml_files(curDataDirPath)
-        archive_data(_ARCHIVES_DIR_PATH, curDataDirPath)
+        parse_all_city_files(curDataDirPath, now_datetime)
+        mergedFilePath = merge_xml_files(curDataDirPath, now_datetime)
+        # archive_data(_ARCHIVES_DIR_PATH, curDataDirPath, now_datetime)
     else:
-        curDataDirPath = create_dirs(_ROOT_DATA_DIR_PATH)
+        curDataDirPath = create_dirs(_ROOT_DATA_DIR_PATH, now_datetime)
         citiesList = get_cities_list()
         get_all_city_files(citiesList, curDataDirPath)
-        parse_all_city_files(curDataDirPath)
-        mergedFilePath = merge_xml_files(curDataDirPath)
-        archive_data(_ARCHIVES_DIR_PATH, curDataDirPath)
+        parse_all_city_files(curDataDirPath, now_datetime)
+        mergedFilePath = merge_xml_files(curDataDirPath, now_datetime)
+        archive_data(_ARCHIVES_DIR_PATH, curDataDirPath, now_datetime)
         if (_deploy):
             copy_to_site_dir(mergedFilePath, _SITE_DIR_PATH)
 
