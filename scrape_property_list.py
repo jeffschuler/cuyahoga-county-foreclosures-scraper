@@ -266,7 +266,6 @@ def main(argv):
             _deploy = 1
         elif opt in ("-t", "--test"):
             _test_mode = 1
-    source = "".join(args)
 
     # Write messages to logfile
     _logger.setLevel(logging.DEBUG)
