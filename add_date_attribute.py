@@ -14,24 +14,23 @@ def usage():
 
 def do_replace(xml_file_path, date_time):
     # @TODO: exit with error if xml_file_path doesn't exist
-    
-    new_string='<properties date_scraped="' + date_time.isoformat() + '">'
+    replacement_str='<properties date_scraped="' + date_time.isoformat() + '">'
     #line = '<properties>\n'
     p = re.compile('<properties>')
-    
     orig_file = open(xml_file_path, "r")
     temp_file_path = xml_file_path + '~'
     temp_file = open(temp_file_path, "w")
     line_num = 0
+    num_replacements = 0
     for line in orig_file:
         line_num = line_num + 1
-        if line_num < 4: # @TODO: make this smarter
-            line = p.sub(new_string, line) # @TODO: use subn() to get back # of replacements
+        if line_num < 5 and num_replacements < 1: # @TODO: make this smarter
+            (line, num_replacements) = p.subn(replacement_str, line)
         temp_file.write(line)
     temp_file.close()
     orig_file.close()
     # @TODO: test for success
-    #os.rename(temp_file_path, xml_file_path)
+    os.rename(temp_file_path, xml_file_path)
 
 def convert_datestamp(custom_datestamp):
     # convert from YYYYMMDD-HHMMSS (ex. 20101207-054102) to ISO date

@@ -6,5 +6,5 @@ do
     data_dir=`dirname $i`
     datestamp=`basename $data_dir`
     #echo $datestamp
-    cp $i output_aggregates/properties-$datestamp.xml
+    cp $i data/output_aggregates/properties-$datestamp.xml
 done

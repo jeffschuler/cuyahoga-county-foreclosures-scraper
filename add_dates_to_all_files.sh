@@ -6,6 +6,5 @@ do
     data_dir=`dirname $i`
     datestamp=`basename $data_dir`
     #echo $datestamp
-    python add_date_attribute.py $i $datestamp
-    cp $i output_aggregates/properties-$datestamp.xml
+    python add_date_attribute.py -f $i -d $datestamp
 done
