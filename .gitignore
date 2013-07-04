@@ -5,3 +5,4 @@ old
 *.pyc
 log
 archive
+.DS_Store
