@@ -35,7 +35,7 @@ def do_replace(xml_file_path, date_time):
 def convert_datestamp(custom_datestamp):
     # convert from YYYYMMDD-HHMMSS (ex. 20101207-054102) to ISO date
     # @TODO: exit with error if datetime is not YYYYMMDD-HHMMSS
-    
+
     #date_time = datetime.strptime(custom_datestamp, "%Y%m%d-%H%M%S") # only in Python >=2.5
     p = re.match(r'(\d\d\d\d)(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)', custom_datestamp)
     if p.group(0):
@@ -49,9 +49,9 @@ def main(argv):
     global _deploy
     _datestamp = ''
 
-    try:                                
+    try:
         opts, args = getopt.getopt(argv, "hf:d:", ["help", "file", "datestamp"])
-    except getopt.GetoptError:          
+    except getopt.GetoptError:
         usage()
         sys.exit(2)
 
@@ -59,16 +59,16 @@ def main(argv):
         if opt in ("-h", "--help"):
             usage()
             sys.exit(2)
-        elif opt in ("-f", "--file"): 
+        elif opt in ("-f", "--file"):
             _xml_file_path = arg
-        elif opt in ("-d", "--datestamp"): 
+        elif opt in ("-d", "--datestamp"):
             _datestamp = arg
-    
+
     # @TODO: exit with error if file or datestamp is not specified
     if _xml_file_path == '' or _datestamp == '':
         usage()
         sys.exit(2)
-    
+
     date_time = convert_datestamp(_datestamp)
     do_replace(_xml_file_path, date_time)
 

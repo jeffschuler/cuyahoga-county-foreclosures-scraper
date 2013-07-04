@@ -247,12 +247,12 @@ def main(argv):
     _deploy = 0
     global _test_mode
     _test_mode = 0
-    
+
     now_datetime = datetime.now()
 
-    try:                                
+    try:
         opts, args = getopt.getopt(argv, "hqdt", ["help", "quiet", "deploy", "test"])
-    except getopt.GetoptError:          
+    except getopt.GetoptError:
         usage()
         sys.exit(2)
 
@@ -273,7 +273,7 @@ def main(argv):
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     _logger.addHandler(handler)
-    
+
     # Write messages to screen
     if (_log_to_console):
         consoleHandler = logging.StreamHandler()
