@@ -2,10 +2,11 @@
 
 import urllib2
 import urllib
+import cookielib
+import re
+
 import logging
 import logging.handlers
-import cookielib
-
 import pprint
 
 global _OUTPUT_DIR
@@ -93,11 +94,22 @@ def save_response(parcel_num, response):
     return outfile_path
 
 
+def parse_num_properties(response):
+    m = re.search('<span id="ctl00_ContentPlaceHolder1_lblNumberOfRecordsFound">(\d*)</span>', response)
+    if len(m.groups()) > 0:
+        return int(m.group(1))
+    else:
+        _logger.debug('Error: Number of properties unknown.')
+        return 0
+
+
 def get_parcel_info(parcel_num):
     response = run_parcel_search(parcel_num)
     outfile_path = save_response(parcel_num, response)
+    print outfile_path
+    num_properties = parse_num_properties(response)
 
-    return outfile_path
+    return num_properties
 
 
 # @TODO:
