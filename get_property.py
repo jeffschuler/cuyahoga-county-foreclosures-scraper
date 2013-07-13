@@ -1,21 +1,23 @@
 #!/usr/bin/python
 
+# Fetching
 import urllib2
 import urllib
 import cookielib
-import re
 
+# Parsing
+import re
+from BeautifulSoup import BeautifulSoup
+
+# Debug
 import logging
 import logging.handlers
 import pprint
 
-global _OUTPUT_DIR
-_OUTPUT_DIR = 'data'
 
 # Logging
 global _LOG_FILEPATH
 _LOG_FILEPATH = 'log/get_property.log'
-
 global _logger
 _logger = logging.getLogger('Logger')
 
@@ -33,11 +35,19 @@ formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 _logger.addHandler(handler)
 
+
 # Pretty-Printer
 pp = pprint.PrettyPrinter(indent=2)
 
 
+# Output data
+global _OUTPUT_DIR
+_OUTPUT_DIR = 'data'
+
+
 def run_parcel_search(parcel_num):
+    """Submit form to search for a single parcel number, and return response."""
+
     _logger.debug('getting parcel #' + parcel_num)
 
     base_url = 'http://sheriff.cuyahogacounty.us/en-US'
@@ -86,6 +96,7 @@ def run_parcel_search(parcel_num):
 
 
 def save_response(parcel_num, response):
+    """Save response to file."""
     outfile_path = _OUTPUT_DIR + '/' + parcel_num + '.html'
     outfile = file(outfile_path, 'w')
     outfile.write(response)
@@ -95,6 +106,7 @@ def save_response(parcel_num, response):
 
 
 def parse_num_properties(response):
+    """Get the number of properties returned from within the response."""
     m = re.search('<span id="ctl00_ContentPlaceHolder1_lblNumberOfRecordsFound">(\d*)</span>', response)
     if len(m.groups()) > 0:
         return int(m.group(1))
@@ -104,6 +116,7 @@ def parse_num_properties(response):
 
 
 def get_parcel_info(parcel_num):
+    """Submit the form, output to file, and parse."""
     response = run_parcel_search(parcel_num)
     outfile_path = save_response(parcel_num, response)
     print outfile_path
@@ -114,8 +127,6 @@ def get_parcel_info(parcel_num):
 
 # @TODO:
 #   Parse return:
-#     "Number of Properties Found:"
-#       <span id="ctl00_ContentPlaceHolder1_lblNumberOfRecordsFound">0</span>
 #     #ctl00_ContentPlaceHolder1_pnlResultPanel
 #       get table
 #       parse Sale Date, Sale Number, Case Number Status
