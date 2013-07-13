@@ -7,7 +7,7 @@ import cookielib
 
 # Parsing
 import re
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 
 # Debug
 import logging
@@ -88,21 +88,26 @@ def run_parcel_search(parcel_num):
     request = urllib2.Request(form_url, form_data)
     request.get_full_url()
     request.add_header('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:22.0) Gecko/20100101 Firefox/22.0')
-    request.add_header('X-MicrosoftAjax', 'Delta=true')
-    #request.add_header('Referer', 'http://sheriff.cuyahogacounty.us/en-US/Foreclosure-Property-Search.aspx')
+    request.add_header('X-MicrosoftAjax', 'Delta=true') # Necessary for postback
+    request.add_header('Referer', 'http://sheriff.cuyahogacounty.us/en-US/Foreclosure-Property-Search.aspx')
     response = opener.open(request).read()
 
     return response
 
 
-def save_response(parcel_num, response):
-    """Save response to file."""
-    outfile_path = _OUTPUT_DIR + '/' + parcel_num + '.html'
+def write_to_file(data, filename):
+    """Write data to a file in our output data directory."""
+    outfile_path = _OUTPUT_DIR + '/' + filename
     outfile = file(outfile_path, 'w')
-    outfile.write(response)
+    outfile.write(data)
     outfile.close()
-
     return outfile_path
+
+
+def save_response(response, parcel_num):
+    """Save response to file."""
+    output_filename = parcel_num + '.html'
+    return write_to_file(response, output_filename)
 
 
 def parse_num_properties(response):
@@ -115,20 +120,35 @@ def parse_num_properties(response):
         return 0
 
 
+def strip_cruft_from_response(response):
+    """The response comes with initial data before and after the HTML. Remove it."""
+    # @TODO: remove first line
+    # @TODO: remove everything from "|0|hiddenField|__EVENTTARGET|" on
+    return response
+
+
+def parse_properties(response):
+    # @TODO: Parse return:
+    #   #ctl00_ContentPlaceHolder1_pnlResultPanel
+    #       get table
+    #       parse Sale Date, Sale Number, Case Number Status
+    soup = BeautifulSoup(response)
+    prettied = soup.prettify()
+    return prettied
+
+
 def get_parcel_info(parcel_num):
     """Submit the form, output to file, and parse."""
     response = run_parcel_search(parcel_num)
-    outfile_path = save_response(parcel_num, response)
-    print outfile_path
+
     num_properties = parse_num_properties(response)
+    print str(num_properties) + " Property records returned."
 
-    return num_properties
+    response = strip_cruft_from_response(response)
 
+    outfile_path = save_response(response, parcel_num)
+    print "Response saved to " + outfile_path + "."
 
-# @TODO:
-#   Parse return:
-#     #ctl00_ContentPlaceHolder1_pnlResultPanel
-#       get table
-#       parse Sale Date, Sale Number, Case Number Status
-#   click View
-#   get other details
+    prettied = parse_properties(response)
+    prettyfile_path = write_to_file(prettied, parcel_num + '-pretty.html')
+    print "BeautifulSoup prettification saved to " + prettyfile_path + "."
