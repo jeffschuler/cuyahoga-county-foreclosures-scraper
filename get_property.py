@@ -8,6 +8,9 @@ import cookielib
 
 import pprint
 
+global _OUTPUT_DIR
+_OUTPUT_DIR = 'data'
+
 # Logging
 global _LOG_FILEPATH
 _LOG_FILEPATH = 'log/get_property.log'
@@ -33,7 +36,7 @@ _logger.addHandler(handler)
 pp = pprint.PrettyPrinter(indent=2)
 
 
-def get_parcel_info(parcel_num):
+def run_parcel_search(parcel_num):
     _logger.debug('getting parcel #' + parcel_num)
 
     base_url = 'http://sheriff.cuyahogacounty.us/en-US'
@@ -73,22 +76,36 @@ def get_parcel_info(parcel_num):
 
     request = urllib2.Request(form_url, form_data)
     request.get_full_url()
-    request.add_header('User-Agent', 'Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11')
+    request.add_header('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:22.0) Gecko/20100101 Firefox/22.0')
+    request.add_header('X-MicrosoftAjax', 'Delta=true')
+    #request.add_header('Referer', 'http://sheriff.cuyahogacounty.us/en-US/Foreclosure-Property-Search.aspx')
     response = opener.open(request).read()
 
-    outfile_path = 'data/' + parcel_num + '.html'
+    return response
+
+
+def save_response(parcel_num, response):
+    outfile_path = _OUTPUT_DIR + '/' + parcel_num + '.html'
     outfile = file(outfile_path, 'w')
     outfile.write(response)
     outfile.close()
 
     return outfile_path
 
+
+def get_parcel_info(parcel_num):
+    response = run_parcel_search(parcel_num)
+    outfile_path = save_response(parcel_num, response)
+
+    return outfile_path
+
+
 # @TODO:
 #   Parse return:
+#     "Number of Properties Found:"
+#       <span id="ctl00_ContentPlaceHolder1_lblNumberOfRecordsFound">0</span>
 #     #ctl00_ContentPlaceHolder1_pnlResultPanel
-#   get table
-#   "Number of Properties Found: \d"
-#     #ctl00_ContentPlaceHolder1_lblNumberOfRecordsFound
-#   parse Sale Date, Sale Number, Case Number Status
+#       get table
+#       parse Sale Date, Sale Number, Case Number Status
 #   click View
 #   get other details
