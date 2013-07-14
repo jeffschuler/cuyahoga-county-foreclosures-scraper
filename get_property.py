@@ -169,6 +169,7 @@ def parse_properties(response, num_properties):
     #results_table = soup.find(id="ctl00_ContentPlaceHolder1_gvSearchResult")
     id_prefix_base = "ctl00_ContentPlaceHolder1_gvSearchResult_ctl"
     results = [{} for i in range(num_properties)]
+    i = 0
     for result in results:
         table_index = str(i + 2).zfill(2)  # Zero-pad index to two characters
         id_prefix = id_prefix_base + table_index + "_lbl"
@@ -178,7 +179,9 @@ def parse_properties(response, num_properties):
         result['case_number'] = string.strip(soup.find(id=id_prefix + "CaseNumber").string)
         result['result'] = string.strip(soup.find(id=id_prefix + "Result").string)
         result['sold_amount'] = string.strip(soup.find(id=id_prefix + "SoldAmt").string)
-        #result['minimum_bid'] = string.strip(soup.find(id=id_prefix + "MinBid").string)
+        if soup.find(id=id_prefix + "MinBid"):
+            result['minimum_bid'] = string.strip(soup.find(id=id_prefix + "MinBid").string)
+        i += 1
     return results
 
 
