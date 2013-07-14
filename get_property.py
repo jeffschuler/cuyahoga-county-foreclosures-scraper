@@ -6,6 +6,7 @@ import urllib
 import cookielib
 
 # Parsing
+import string
 import re
 from bs4 import BeautifulSoup
 
@@ -42,7 +43,7 @@ pp = pprint.PrettyPrinter(indent=2)
 
 # Run live search or use pre-saved data
 global _LIVE_MODE
-_LIVE_MODE = True
+_LIVE_MODE = False
 
 
 # Output data
@@ -142,8 +143,15 @@ def parse_num_properties(response):
 
 def strip_cruft_from_response(response):
     """The response comes with initial data before and after the HTML. Remove it."""
-    # @TODO: remove first line
-    # @TODO: remove everything from "|0|hiddenField|__EVENTTARGET|" on
+
+    # Remove non-HTML first line
+    parts = string.split(response, "\n", 1)
+    response = parts[1]
+
+    # Remove non-HTML at the end, from "|0|hiddenField|__EVENTTARGET|" on
+    end_html_index = string.find(response, '|0|hiddenField|__EVENTTARGET|')
+    response = response[0:end_html_index]
+
     return response
 
 
