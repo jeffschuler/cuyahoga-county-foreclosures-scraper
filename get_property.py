@@ -121,13 +121,13 @@ def read_from_file(filename):
 
 def save_response(response, parcel_num):
     """Save response to file."""
-    filename = parcel_num + '.html'
+    filename = parcel_num + '-orig.txt'
     return write_to_file(response, filename)
 
 
 def get_search_response_from_file(parcel_num):
-    """Read a pre-saved response from existing file."""
-    filename = parcel_num + '.html'
+    """Read a pre-saved (original) response from existing file."""
+    filename = parcel_num + '-orig.txt'
     return read_from_file(filename)
 
 
@@ -141,8 +141,13 @@ def parse_num_properties(response):
         return 0
 
 
-def strip_cruft_from_response(response):
-    """The response comes with initial data before and after the HTML. Remove it."""
+def clean_response(response):
+    """Clean up and return the search response.
+
+    It comes with initial data before and after the HTML. Remove that.
+    Then prettify with BeautifulSoup.
+
+    """
 
     # Remove non-HTML first line
     parts = string.split(response, "\n", 1)
@@ -152,17 +157,29 @@ def strip_cruft_from_response(response):
     end_html_index = string.find(response, '|0|hiddenField|__EVENTTARGET|')
     response = response[0:end_html_index]
 
+    # Prettify with BeautifulSoup.
+    soup = BeautifulSoup(response)
+    response = soup.prettify()
+
     return response
 
 
-def parse_properties(response):
-    # @TODO: Parse return:
-    #   #ctl00_ContentPlaceHolder1_pnlResultPanel
-    #       get table
-    #       parse Sale Date, Sale Number, Case Number Status
+def parse_properties(response, num_properties):
     soup = BeautifulSoup(response)
-    prettied = soup.prettify()
-    return prettied
+    #results_table = soup.find(id="ctl00_ContentPlaceHolder1_gvSearchResult")
+    id_prefix_base = "ctl00_ContentPlaceHolder1_gvSearchResult_ctl"
+    results = [{} for i in range(num_properties)]
+    for result in results:
+        table_index = str(i + 2).zfill(2)  # Zero-pad index to two characters
+        id_prefix = id_prefix_base + table_index + "_lbl"
+        result['parcel_num'] = string.strip(soup.find(id=id_prefix + "ParcelNumber").string)
+        result['sale_date'] = string.strip(soup.find(id=id_prefix + "SaleDate").string)
+        result['sale_number'] = string.strip(soup.find(id=id_prefix + "SaleNumber").string)
+        result['case_number'] = string.strip(soup.find(id=id_prefix + "CaseNumber").string)
+        result['result'] = string.strip(soup.find(id=id_prefix + "Result").string)
+        result['sold_amount'] = string.strip(soup.find(id=id_prefix + "SoldAmt").string)
+        #result['minimum_bid'] = string.strip(soup.find(id=id_prefix + "MinBid").string)
+    return results
 
 
 def get_parcel_info(parcel_num, live_mode=_LIVE_MODE):
@@ -170,15 +187,15 @@ def get_parcel_info(parcel_num, live_mode=_LIVE_MODE):
     if live_mode:
         response = run_parcel_search(parcel_num)
         outfile_path = save_response(response, parcel_num)
-        print "Response saved to " + outfile_path + "."
+        print "Original response saved to '" + outfile_path + "'."
     else:
         response = get_search_response_from_file(parcel_num)
 
     num_properties = parse_num_properties(response)
     print str(num_properties) + " Property records returned."
 
-    response = strip_cruft_from_response(response)
+    response = clean_response(response)
+    cleaned_response_path = write_to_file(response, parcel_num + '.html')
+    print "Cleaned-up response saved to '" + cleaned_response_path + "'."
 
-    prettied = parse_properties(response)
-    prettyfile_path = write_to_file(prettied, parcel_num + '-pretty.html')
-    print "BeautifulSoup prettification saved to " + prettyfile_path + "."
+    return parse_properties(response, num_properties)
