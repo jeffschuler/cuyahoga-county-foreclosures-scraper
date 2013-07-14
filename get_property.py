@@ -40,6 +40,11 @@ _logger.addHandler(handler)
 pp = pprint.PrettyPrinter(indent=2)
 
 
+# Run live search or use pre-saved data
+global _LIVE_MODE
+_LIVE_MODE = True
+
+
 # Output data
 global _OUTPUT_DIR
 _OUTPUT_DIR = 'data'
@@ -96,7 +101,7 @@ def run_parcel_search(parcel_num):
 
 
 def write_to_file(data, filename):
-    """Write data to a file in our output data directory."""
+    """Write data to a file in our data directory."""
     outfile_path = _OUTPUT_DIR + '/' + filename
     outfile = file(outfile_path, 'w')
     outfile.write(data)
@@ -104,10 +109,25 @@ def write_to_file(data, filename):
     return outfile_path
 
 
+def read_from_file(filename):
+    """Read and return all data from a file in our data directory."""
+    path = _OUTPUT_DIR + '/' + filename
+    infile = file(path, 'r')
+    data = infile.read()
+    infile.close()
+    return data
+
+
 def save_response(response, parcel_num):
     """Save response to file."""
-    output_filename = parcel_num + '.html'
-    return write_to_file(response, output_filename)
+    filename = parcel_num + '.html'
+    return write_to_file(response, filename)
+
+
+def get_search_response_from_file(parcel_num):
+    """Read a pre-saved response from existing file."""
+    filename = parcel_num + '.html'
+    return read_from_file(filename)
 
 
 def parse_num_properties(response):
@@ -137,17 +157,19 @@ def parse_properties(response):
     return prettied
 
 
-def get_parcel_info(parcel_num):
+def get_parcel_info(parcel_num, live_mode=_LIVE_MODE):
     """Submit the form, output to file, and parse."""
-    response = run_parcel_search(parcel_num)
+    if live_mode:
+        response = run_parcel_search(parcel_num)
+        outfile_path = save_response(response, parcel_num)
+        print "Response saved to " + outfile_path + "."
+    else:
+        response = get_search_response_from_file(parcel_num)
 
     num_properties = parse_num_properties(response)
     print str(num_properties) + " Property records returned."
 
     response = strip_cruft_from_response(response)
-
-    outfile_path = save_response(response, parcel_num)
-    print "Response saved to " + outfile_path + "."
 
     prettied = parse_properties(response)
     prettyfile_path = write_to_file(prettied, parcel_num + '-pretty.html')
