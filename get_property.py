@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+# Shell
+import sys
+import getopt
+
 # Fetching
 import urllib2
 import urllib
@@ -202,3 +206,39 @@ def get_parcel_info(parcel_num, live_mode=_LIVE_MODE):
     print "Cleaned-up response saved to '" + cleaned_response_path + "'."
 
     return parse_properties(response, num_properties)
+
+
+def usage():
+    print "Usage: " + sys.argv[0] + " [-h|--help] [-p|--parcel] <parcel_id> [-c|cached]"
+
+
+def main(argv):
+    # Global cmd-line parameter -based variables
+    global _live_mode
+    _live_mode = True
+    global _deploy
+    _parcel_num = ''
+
+    try:
+        opts, args = getopt.getopt(argv, "hp:c", ["help", "parcel", "cached"])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            usage()
+            sys.exit(2)
+        elif opt in ("-p", "--parcel"):
+            _parcel_num = arg
+        elif opt in ("-c", "--cached"):
+            _live_mode = False
+
+    if _parcel_num == '':
+        usage()
+        sys.exit(2)
+
+    get_parcel_info(_parcel_num, _live_mode)
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
