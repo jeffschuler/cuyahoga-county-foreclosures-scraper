@@ -2,7 +2,7 @@
 
 # Shell
 import sys
-import getopt
+import argparse
 
 # Fetching
 import urllib2
@@ -98,7 +98,7 @@ def run_parcel_search(parcel_num):
     request = urllib2.Request(form_url, form_data)
     request.get_full_url()
     request.add_header('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:22.0) Gecko/20100101 Firefox/22.0')
-    request.add_header('X-MicrosoftAjax', 'Delta=true') # Necessary for postback
+    request.add_header('X-MicrosoftAjax', 'Delta=true')  # Necessary for postback
     request.add_header('Referer', 'http://sheriff.cuyahogacounty.us/en-US/Foreclosure-Property-Search.aspx')
     response = opener.open(request).read()
 
@@ -208,10 +208,6 @@ def get_parcel_info(parcel_num, live_mode=_LIVE_MODE):
     return parse_properties(response, num_properties)
 
 
-def usage():
-    print "Usage: " + sys.argv[0] + " [-h|--help] [-p|--parcel] <parcel_id> [-c|cached]"
-
-
 def main(argv):
     # Global cmd-line parameter -based variables
     global _live_mode
@@ -219,26 +215,20 @@ def main(argv):
     global _deploy
     _parcel_num = ''
 
-    try:
-        opts, args = getopt.getopt(argv, "hp:c", ["help", "parcel", "cached"])
-    except getopt.GetoptError:
-        usage()
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description='Search for parcel information.')
+    parser.add_argument('-c', '--cached', help='Cached mode', action='store_true')
+    parser.add_argument('parcel_num', help='Parcel Number')
 
-    for opt, arg in opts:
-        if opt in ("-h", "--help"):
-            usage()
-            sys.exit(2)
-        elif opt in ("-p", "--parcel"):
-            _parcel_num = arg
-        elif opt in ("-c", "--cached"):
-            _live_mode = False
+    args = parser.parse_args()
 
-    if _parcel_num == '':
-        usage()
-        sys.exit(2)
+    _parcel_num = args.parcel_num
+    print 'Getting information for parcel: ' + _parcel_num
+    if args.cached:
+        _live_mode = False
+        print 'Running in cached mode.'
 
     get_parcel_info(_parcel_num, _live_mode)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
