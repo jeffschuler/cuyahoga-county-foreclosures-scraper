@@ -17,32 +17,24 @@ from bs4 import BeautifulSoup
 # Debug
 import logging
 import logging.handlers
-import pprint
+#import pprint
 
 
 # Logging
-global _LOG_FILEPATH
-_LOG_FILEPATH = 'log/get_property.log'
+global _LOG_FILE_PATH
+_LOG_FILE_PATH = 'log/get_property.log'
 global _logger
 _logger = logging.getLogger('Logger')
 
-# Log to console
-#consoleHandler = logging.StreamHandler()
-#consoleHandler.setLevel(logging.DEBUG)
-#consoleFormatter = logging.Formatter("%(message)s")
-#consoleHandler.setFormatter(consoleFormatter)
-#_logger.addHandler(consoleHandler)
 
-# Log to logfile
-_logger.setLevel(logging.DEBUG)
-handler = logging.handlers.RotatingFileHandler(_LOG_FILEPATH, maxBytes=200000, backupCount=5)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-_logger.addHandler(handler)
+# Output data
+global _OUTPUT_DIR
+_OUTPUT_DIR = 'data'
 
 
 # Pretty-Printer
-pp = pprint.PrettyPrinter(indent=2)
+#global _pp
+#_pp = pprint.PrettyPrinter(indent=2)
 
 
 # Run live search or use pre-saved data
@@ -50,9 +42,20 @@ global _LIVE_MODE
 _LIVE_MODE = False
 
 
-# Output data
-global _OUTPUT_DIR
-_OUTPUT_DIR = 'data'
+def set_up_logger(log_file_path):
+    # Log to console
+    #consoleHandler = logging.StreamHandler()
+    #consoleHandler.setLevel(logging.DEBUG)
+    #consoleFormatter = logging.Formatter("%(message)s")
+    #consoleHandler.setFormatter(consoleFormatter)
+    #_logger.addHandler(consoleHandler)
+
+    # Log to logfile
+    _logger.setLevel(logging.DEBUG)
+    handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=200000, backupCount=5)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    _logger.addHandler(handler)
 
 
 def run_parcel_search(parcel_num):
@@ -69,7 +72,7 @@ def run_parcel_search(parcel_num):
     opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(jar))
     urllib2.install_opener(opener)
     opener.open(page_url)
-    #pp.pprint(jar)
+    #_pp.pprint(jar)
 
     # @TODO: scrape __EVENTVALIDATION and __VIEWSTATE from page
 
@@ -113,34 +116,34 @@ def normalize_parcel_num(parcel_num):
     return string.replace(parcel_num, '-', '')
 
 
-def write_to_file(data, filename):
+def write_to_file(data, data_dir, filename):
     """Write data to a file in our data directory."""
-    outfile_path = _OUTPUT_DIR + '/' + filename
+    outfile_path = data_dir + '/' + filename
     outfile = file(outfile_path, 'w')
     outfile.write(data)
     outfile.close()
     return outfile_path
 
 
-def read_from_file(filename):
+def read_from_file(data_dir, filename):
     """Read and return all data from a file in our data directory."""
-    path = _OUTPUT_DIR + '/' + filename
+    path = data_dir + '/' + filename
     infile = file(path, 'r')
     data = infile.read()
     infile.close()
     return data
 
 
-def save_response(response, parcel_num):
+def save_response(response, parcel_num, data_dir):
     """Save response to file."""
     filename = parcel_num + '-orig.txt'
-    return write_to_file(response, filename)
+    return write_to_file(response, data_dir, filename)
 
 
-def get_search_response_from_file(parcel_num):
+def get_search_response_from_file(parcel_num, data_dir):
     """Read a pre-saved (original) response from existing file."""
     filename = parcel_num + '-orig.txt'
-    return read_from_file(filename)
+    return read_from_file(data_dir, filename)
 
 
 def parse_num_properties(response):
@@ -196,46 +199,67 @@ def parse_properties(response, num_properties):
     return results
 
 
-def get_parcel_info(parcel_num, live_mode=_LIVE_MODE):
+def get_parcel_info(parcel_num, data_dir, live_mode=_LIVE_MODE):
     """Submit the form, output to file, and parse."""
     parcel_num = normalize_parcel_num(parcel_num)
     if live_mode:
         response = run_parcel_search(parcel_num)
-        outfile_path = save_response(response, parcel_num)
+        outfile_path = save_response(response, parcel_num, data_dir)
         print "Original response saved to '" + outfile_path + "'."
     else:
-        response = get_search_response_from_file(parcel_num)
+        response = get_search_response_from_file(parcel_num, data_dir)
 
     num_properties = parse_num_properties(response)
     print str(num_properties) + " Property records returned."
 
     response = clean_response(response)
-    cleaned_response_path = write_to_file(response, parcel_num + '.html')
+    cleaned_response_path = write_to_file(response, data_dir, parcel_num + '.html')
     print "Cleaned-up response saved to '" + cleaned_response_path + "'."
 
     return parse_properties(response, num_properties)
 
 
 def main(argv):
-    # Global cmd-line parameter -based variables
-    global _live_mode
-    _live_mode = True
-    global _deploy
-    _parcel_num = ''
-
     parser = argparse.ArgumentParser(description='Search for parcel information.')
-    parser.add_argument('-c', '--cached', help='Cached mode', action='store_true')
-    parser.add_argument('parcel_num', help='Parcel Number')
+    parser.add_argument('-c', '--cached',
+                        help='Cached mode: get parcel info from file.',
+                        action='store_true')
+    parser.add_argument('-l', '--logfile',
+                        help='Path to writable logfile. Defaults to "./log/get_property.log"',
+                        default=_LOG_FILE_PATH)
+    parser.add_argument('-d', '--data_dir',
+                        help='Path to data directory. No trailing slash. Defaults to "./data"',
+                        default=_OUTPUT_DIR)
+    parser.add_argument('parcel_num',
+                        help='Parcel number, with or without dashes, like "007-09-107".')
 
     args = parser.parse_args()
 
-    _parcel_num = args.parcel_num
-    print 'Getting information for parcel: ' + _parcel_num
-    if args.cached:
-        _live_mode = False
-        print 'Running in cached mode.'
+    # Logfile path arg
+    if args.logfile:
+        log_file_path = args.logfile
+    else:
+        log_file_path = _LOG_FILE_PATH
+    set_up_logger(log_file_path)
 
-    print get_parcel_info(_parcel_num, _live_mode)
+    # Data directory path arg
+    if args.data_dir:
+        data_dir = args.data_dir
+    else:
+        data_dir = _OUTPUT_DIR
+
+    # Parcel number arg
+    parcel_num = args.parcel_num
+    print 'Getting information for parcel: ' + parcel_num
+    if args.cached:
+        live_mode = False
+        print 'Running in cached mode.'
+    else:
+        live_mode = True
+
+    # Go!
+    properties = get_parcel_info(parcel_num, data_dir, live_mode)
+    print properties
 
 
 if __name__ == "__main__":
