@@ -105,6 +105,14 @@ def run_parcel_search(parcel_num):
     return response
 
 
+def normalize_parcel_num(parcel_num):
+    """
+    Use consistent format for parcel numbers by stripping dashes.
+    The form doesn't care whether there are dashes or not.
+    """
+    return string.replace(parcel_num, '-', '')
+
+
 def write_to_file(data, filename):
     """Write data to a file in our data directory."""
     outfile_path = _OUTPUT_DIR + '/' + filename
@@ -146,11 +154,10 @@ def parse_num_properties(response):
 
 
 def clean_response(response):
-    """Clean up and return the search response.
-
-    It comes with initial data before and after the HTML. Remove that.
-    Then prettify with BeautifulSoup.
-
+    """
+    Clean up and return the search response.
+    It comes with initial data before and after the HTML. Remove that,
+    then prettify with BeautifulSoup.
     """
 
     # Remove non-HTML first line
@@ -191,6 +198,7 @@ def parse_properties(response, num_properties):
 
 def get_parcel_info(parcel_num, live_mode=_LIVE_MODE):
     """Submit the form, output to file, and parse."""
+    parcel_num = normalize_parcel_num(parcel_num)
     if live_mode:
         response = run_parcel_search(parcel_num)
         outfile_path = save_response(response, parcel_num)
@@ -227,7 +235,7 @@ def main(argv):
         _live_mode = False
         print 'Running in cached mode.'
 
-    get_parcel_info(_parcel_num, _live_mode)
+    print get_parcel_info(_parcel_num, _live_mode)
 
 
 if __name__ == "__main__":
