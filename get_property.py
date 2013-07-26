@@ -14,6 +14,10 @@ import string
 import re
 from bs4 import BeautifulSoup
 
+# Data storage
+import datetime
+from pymongo import MongoClient
+
 # Debug
 import logging
 import logging.handlers
@@ -199,6 +203,21 @@ def parse_properties(response, num_properties):
     return results
 
 
+def store_properties_info_in_db(parsed_data):
+    for property in parsed_data:
+        store_parcel_record_in_db(property)
+    return
+
+
+def store_parcel_record_in_db(parcel_record):
+    client = MongoClient()
+    db = client.foreclosures
+    parcel_infos = db.parcel_info
+    parcel_record['date'] = datetime.datetime.utcnow()
+    parcel_info_id = parcel_infos.insert(parcel_record)
+    return parcel_info_id
+
+
 def get_parcel_info(parcel_num, data_dir, live_mode=_LIVE_MODE):
     """Submit the form, output to file, and parse."""
     parcel_num = normalize_parcel_num(parcel_num)
@@ -259,6 +278,8 @@ def main(argv):
 
     # Go!
     properties = get_parcel_info(parcel_num, data_dir, live_mode)
+    if live_mode:
+        store_properties_info_in_db(properties)
     print properties
 
 
